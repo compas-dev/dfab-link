@@ -13,11 +13,10 @@ dependencies:
    - compas_rrc=1.1
    - compas_slicer
    - pip:
-    - black
-    - compas_invocations
-    - flake8
-    - invoke
-    - isort
-    - pydocstyle
-    - pytest
-
+     - black
+     - compas_invocations
+     - flake8
+     - invoke
+     - isort
+     - pydocstyle
+     - pytest

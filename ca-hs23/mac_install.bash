@@ -27,6 +27,10 @@ echo "Activating virtual environment…"
 source $CONDA_HOME/bin/activate $CONDA_ENV_NAME
 echo "Activating virtual environment…Done!"
 
+echo "Installing development tools…"
+python -m pip install black flake8 isort pytest rhino-stubs -q
+echo "Installing development tools…Done!"
+
 echo "Installing on Rhino…"
 python -m compas_rhino.install
 echo "Installing on Rhino…Done!"

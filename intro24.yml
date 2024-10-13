@@ -1,0 +1,15 @@
+name: intro24
+channels:
+    - conda-forge
+
+dependencies:
+   - python=3.10
+   - pip
+   - git
+   - compas>=2.4,<3
+   - pip:
+     - black
+     - flake8
+     - isort
+     - pytest
+     - rhino-stubs

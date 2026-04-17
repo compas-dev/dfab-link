@@ -341,7 +341,7 @@
       ctx.fillStyle = BACKGROUND; // Set this to your desired background color
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      const maxDistance = 300; // Maximum distance to draw a line
+      const maxDistance = 300 * getScale(); // Maximum distance to draw a line
       dotted = 0
       for (let i = 0; i < bubbles.length; i++) {
         for (let j = i + 1; j < bubbles.length; j++) {
@@ -373,7 +373,7 @@
 
 
       // Draw lines to the center from close bubbles
-      const centerMaxDistance = 400; // Maximum distance from center to draw a line
+      const centerMaxDistance = 400 * getScale(); // Maximum distance from center to draw a line
       const centerX = canvas.width / 2;
       const centerY = canvas.height / 2;
       dotted = 0

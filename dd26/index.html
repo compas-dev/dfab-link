@@ -358,7 +358,7 @@
             // ctx.strokeStyle = `rgba(0, 175, 250, ${1 - distance / maxDistance})`;
             ctx.strokeStyle = `rgba(0, 0, 0, ${1 - distance / maxDistance})`;
             // ctx.strokeStyle = STROKE_COLOR
-            ctx.lineWidth = 5;
+            ctx.lineWidth = 1 + 4 * (getScale() - 0.5) * 2;
             dash_line = 40
             ratio = distance / maxDistance
             gap = ratio * dash_line - 15
@@ -390,6 +390,7 @@
           // ctx.strokeStyle = `rgba(0, 175, 250, ${1 - distance / centerMaxDistance})`;
           ctx.strokeStyle = `rgba(0, 0, 0, ${1 - distance / centerMaxDistance})`;
           // ctx.strokeStyle = STROKE_COLOR
+          ctx.lineWidth = 1 + 4 * (getScale() - 0.5) * 2;
           // if(dotted % 3 === 0){
           //   ctx.setLineDash([6, 10]); // Dotted line
           // } else if(dotted % 3 === 1){

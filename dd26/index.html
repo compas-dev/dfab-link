@@ -19,6 +19,7 @@
 
     canvas {
       display: block;
+      cursor: default;
     }
 
     h1 {
@@ -160,6 +161,38 @@
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
 
+    let mouseX = -1000, mouseY = -1000;
+    let isHoveringLogo = false;
+    let hoverPulse = 0;
+
+    function isOverLogo(x, y) {
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      const dx = x - cx;
+      const dy = y - cy;
+      return Math.sqrt(dx * dx + dy * dy) < 75;
+    }
+
+    canvas.addEventListener("mousemove", (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      const over = isOverLogo(mouseX, mouseY);
+      if (over !== isHoveringLogo) {
+        isHoveringLogo = over;
+      }
+      canvas.style.cursor = over ? "pointer" : "default";
+    });
+
+    canvas.addEventListener("mouseleave", () => {
+      isHoveringLogo = false;
+      canvas.style.cursor = "default";
+    });
+
+    canvas.addEventListener("click", (e) => {
+      if (isOverLogo(e.clientX, e.clientY)) {
+        window.open("https://join.compas.dev/dd26", "_blank");
+      }
+    });
 
     compas_icon = new Image();
     compas_icon.src = "compas_icon.png";
@@ -251,6 +284,38 @@
         bubble.draw(ctx);
       }
 
+
+      // Hover glow effect
+      if (isHoveringLogo) {
+        hoverPulse += 0.05;
+        const pulse = Math.sin(hoverPulse) * 0.5 + 0.5; // 0..1 oscillation
+
+        // Expanding ripple rings
+        for (let r = 0; r < 3; r++) {
+          const ringPhase = (hoverPulse * 0.8 + r * (Math.PI * 2 / 3)) % (Math.PI * 2);
+          const ringRadius = 78 + ((ringPhase / (Math.PI * 2)) % 1) * 60;
+          const ringAlpha = 1 - (ringRadius - 78) / 60;
+          ctx.beginPath();
+          ctx.arc(canvas.width / 2, canvas.height / 2, ringRadius, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(0, 0, 0, ${ringAlpha * 0.5})`;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+
+        // Glow behind icon
+        const glow = ctx.createRadialGradient(
+          canvas.width / 2, canvas.height / 2, 40,
+          canvas.width / 2, canvas.height / 2, 110
+        );
+        glow.addColorStop(0, `rgba(80, 80, 80, ${0.18 + pulse * 0.12})`);
+        glow.addColorStop(1, "rgba(0, 0, 0, 0)");
+        ctx.beginPath();
+        ctx.arc(canvas.width / 2, canvas.height / 2, 110, 0, Math.PI * 2);
+        ctx.fillStyle = glow;
+        ctx.fill();
+      } else {
+        hoverPulse = 0;
+      }
 
       ctx.drawImage(compas_icon, canvas.width / 2 - 75, canvas.height / 2 - 75, 150, 150);
       ctx.beginPath();

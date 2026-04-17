@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Canvas Visuals</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!--<h1> COMPAS DEV DAY 2026</h1>-->
+
+  <style>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #0e0e0e;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    h1 {
+      font-size: 4em;
+      position: fixed;
+      color: royalblue;
+      width: 100%;
+      text-align: center;
+      z-index: 100;
+      font-family: "helvetica";
+      top: 55vh;
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="canvas"></canvas>
+
+  <script>
+
+
+    // STROKE_COLOR = "rgb(0, 175, 250)"
+    STROKE_COLOR = "black"
+    // BACKGROUND = "#001a2e"
+    BACKGROUND = "#fffaeb"
+    // BACKGROUND = "rgba(0, 26, 46, 1)" // Semi-transparent background for trails
+
+
+    class Bubble {
+      constructor(x, y, radius) {
+        this.x = x;
+        this.y = y;
+        this.radius = radius;
+        this.speed = Math.random() * 2 + 1;
+        this.vx = Math.random() * 2 - 1; // Horizontal drift
+        this.vy = Math.random() * 2 - 1; // Vertical speed
+      }
+
+      update(bubbles) {
+        this.x += this.vx;
+        this.y += this.vy;
+
+        this.check_borders_collisions();
+        this.check_other_bubbles_collisions(bubbles)
+        this.check_compas_logo_collision()
+      }
+
+      check_borders_collisions() {
+        if (this.x - this.radius < 0 || this.x + this.radius > window.innerWidth) {
+          this.vx *= -1; // Bounce off the sides
+        }
+
+        if (this.y - this.radius < 0 || this.y + this.radius > window.innerHeight) {
+          this.vy *= -1; // Bounce off the top and bottom
+        }
+      }
+
+      check_other_bubbles_collisions(bubbles) {
+        for (const other of bubbles) {
+          if (other !== this) {
+            const dx = other.x - this.x;
+            const dy = other.y - this.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance < this.radius + other.radius) {
+              // Simple collision response: swap velocities
+              const tempVx = this.vx;
+              const tempVy = this.vy;
+              this.vx = other.vx;
+              this.vy = other.vy;
+              other.vx = tempVx;
+              other.vy = tempVy;
+            }
+          }
+        }
+      }
+
+      check_compas_logo_collision() {
+        const dx = ((window.innerWidth / 2)) - this.x;
+        const dy = ((window.innerHeight / 2)) - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < this.radius + 75) { // 75 is half the logo size
+          // Simple collision response: bounce off the logo
+          const angle = Math.atan2(dy, dx);
+          const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+          this.vx = -Math.cos(angle) * speed;
+          this.vy = -Math.sin(angle) * speed;
+        }
+      }
+
+      draw(ctx) {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = BACKGROUND
+        ctx.strokeStyle = STROKE_COLOR
+        ctx.lineWidth = 7;
+        ctx.fill();
+        ctx.stroke();
+
+        if (this.radius > 25) {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.radius - 20, 0, Math.PI * 2);
+          ctx.fillStyle = "black";
+          ctx.strokeStyle = STROKE_COLOR;
+          ctx.lineWidth = 5;
+          ctx.fill();
+          ctx.stroke();
+        }
+      }
+    }
+
+
+
+    function create_bubbles() {
+      const bubbles = [];
+      for (let i = 0; i < 5; i++) {
+        for (let j = 0; j < 4; j++) {
+          const x = i * ((window.innerWidth - 100) / 4) + 50; // Distribute bubbles evenly across the width
+          const y = j * ((window.innerHeight - 100) / 3) + 50; // Distribute bubbles evenly across the height
+          const radius = Math.random() * 30 + 20; // Random radius between 10 and 30
+          const bubble = new Bubble(x, y, radius);
+          bubbles.push(bubble);
+        }
+      }
+      return bubbles;
+    }
+
+
+
+    // Resize canvas
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+
+
+
+
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+
+    compas_icon = new Image();
+    compas_icon.src = "compas_icon.png";
+
+
+    // SETUP
+    const bubbles = create_bubbles();
+    window.addEventListener("resize", resize);
+    resize();
+
+
+
+
+    function animate(time) {
+      // ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = BACKGROUND; // Set this to your desired background color
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const maxDistance = 300; // Maximum distance to draw a line
+      dotted = 0
+      for (let i = 0; i < bubbles.length; i++) {
+        for (let j = i + 1; j < bubbles.length; j++) {
+          const bubble1 = bubbles[i];
+          const bubble2 = bubbles[j];
+          const dx = bubble2.x - bubble1.x;
+          const dy = bubble2.y - bubble1.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance < maxDistance) {
+            ctx.beginPath();
+            ctx.moveTo(bubble1.x, bubble1.y);
+            ctx.lineTo(bubble2.x, bubble2.y);
+            // ctx.strokeStyle = `rgba(0, 175, 250, ${1 - distance / maxDistance})`;
+            ctx.strokeStyle = `rgba(0, 0, 0, ${1 - distance / maxDistance})`;
+            // ctx.strokeStyle = STROKE_COLOR
+            ctx.lineWidth = 5;
+            dash_line = 40
+            ratio = distance / maxDistance
+            gap = ratio * dash_line - 15
+            line = dash_line - gap
+            ctx.setLineDash([line, gap]); // Dotted line
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset to solid line for next connections
+            dotted++
+          }
+        }
+      }
+
+
+      // Draw lines to the center from close bubbles
+      const centerMaxDistance = 400; // Maximum distance from center to draw a line
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      dotted = 0
+      for (const bubble of bubbles) {
+        const dx = centerX - bubble.x;
+        const dy = centerY - bubble.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < centerMaxDistance) {
+          ctx.beginPath();
+          ctx.moveTo(bubble.x, bubble.y);
+          ctx.lineTo(centerX, centerY);
+
+          // ctx.strokeStyle = `rgba(0, 175, 250, ${1 - distance / centerMaxDistance})`;
+          ctx.strokeStyle = `rgba(0, 0, 0, ${1 - distance / centerMaxDistance})`;
+          // ctx.strokeStyle = STROKE_COLOR
+          // if(dotted % 3 === 0){
+          //   ctx.setLineDash([6, 10]); // Dotted line
+          // } else if(dotted % 3 === 1){
+          //    ctx.setLineDash([20, 10]); // Dashed line{
+          // }
+
+          dash_line = 20
+          ratio = distance / centerMaxDistance
+          gap = ratio * dash_line - 7
+          line = dash_line - gap
+          ctx.setLineDash([line, gap]); // Dotted line
+
+          ctx.stroke();
+          ctx.setLineDash([]); // Reset to solid line for next connections
+          dotted++
+        }
+      }
+
+
+      for (const bubble of bubbles) {
+        bubble.update(bubbles);
+        bubble.draw(ctx);
+      }
+
+
+      ctx.drawImage(compas_icon, canvas.width / 2 - 75, canvas.height / 2 - 75, 150, 150);
+      ctx.beginPath();
+      ctx.arc(canvas.width / 2, canvas.height / 2, 72, 0, Math.PI * 2);
+      ctx.strokeStyle = "black";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      requestAnimationFrame(animate);
+    }
+
+    compas_icon.onload = () => {
+      requestAnimationFrame(animate);
+    };
+
+
+  </script>
+</body>
+
+</html>

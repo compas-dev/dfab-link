@@ -56,9 +56,20 @@
         this.speed = Math.random() * 2 + 1;
         this.vx = Math.random() * 2 - 1; // Horizontal drift
         this.vy = Math.random() * 2 - 1; // Vertical speed
+        this.baseSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
       }
 
       update(bubbles) {
+        const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+        if (speed > this.baseSpeed) {
+          this.vx *= 0.985;
+          this.vy *= 0.985;
+        } else if (speed > 0.001) {
+          // Gently restore to baseline speed along current direction
+          const scale = this.baseSpeed / speed;
+          this.vx *= 1 + (scale - 1) * 0.05;
+          this.vy *= 1 + (scale - 1) * 0.05;
+        }
         this.x += this.vx;
         this.y += this.vy;
 
@@ -164,6 +175,11 @@
     let mouseX = -1000, mouseY = -1000;
     let isHoveringLogo = false;
     let hoverPulse = 0;
+    let hoverOpacity = 0;
+
+    let draggedBubble = null;
+    let prevDragX = 0, prevDragY = 0;
+    let dragVx = 0, dragVy = 0;
 
     function isOverLogo(x, y) {
       const cx = canvas.width / 2;
@@ -173,17 +189,76 @@
       return Math.sqrt(dx * dx + dy * dy) < 75;
     }
 
+    function bubbleAt(x, y) {
+      // Iterate in reverse so topmost-drawn bubble is picked first
+      for (let i = bubbles.length - 1; i >= 0; i--) {
+        const b = bubbles[i];
+        const dx = x - b.x;
+        const dy = y - b.y;
+        if (Math.sqrt(dx * dx + dy * dy) < b.radius) return b;
+      }
+      return null;
+    }
+
+    canvas.addEventListener("mousedown", (e) => {
+      if (isOverLogo(e.clientX, e.clientY)) return; // logo click handled separately
+      const b = bubbleAt(e.clientX, e.clientY);
+      if (b) {
+        draggedBubble = b;
+        prevDragX = e.clientX;
+        prevDragY = e.clientY;
+        dragVx = 0;
+        dragVy = 0;
+        b.vx = 0;
+        b.vy = 0;
+        canvas.style.cursor = "grabbing";
+      }
+    });
+
     canvas.addEventListener("mousemove", (e) => {
       mouseX = e.clientX;
       mouseY = e.clientY;
-      const over = isOverLogo(mouseX, mouseY);
-      if (over !== isHoveringLogo) {
-        isHoveringLogo = over;
+
+      if (draggedBubble) {
+        dragVx = e.clientX - prevDragX;
+        dragVy = e.clientY - prevDragY;
+        draggedBubble.x = e.clientX;
+        draggedBubble.y = e.clientY;
+        prevDragX = e.clientX;
+        prevDragY = e.clientY;
+        canvas.style.cursor = "grabbing";
+        return;
       }
-      canvas.style.cursor = over ? "pointer" : "default";
+
+      const overBubble = !!bubbleAt(mouseX, mouseY);
+      const over = isOverLogo(mouseX, mouseY);
+      isHoveringLogo = over && !draggedBubble;
+      canvas.style.cursor = over ? "pointer" : overBubble ? "grab" : "default";
+    });
+
+    canvas.addEventListener("mouseup", (e) => {
+      if (draggedBubble) {
+        // Release with the velocity from the last drag movement, clamped to a max speed
+        const maxSpeed = 12;
+        const speed = Math.sqrt(dragVx * dragVx + dragVy * dragVy);
+        if (speed > maxSpeed) {
+          draggedBubble.vx = (dragVx / speed) * maxSpeed;
+          draggedBubble.vy = (dragVy / speed) * maxSpeed;
+        } else {
+          draggedBubble.vx = dragVx;
+          draggedBubble.vy = dragVy;
+        }
+        draggedBubble = null;
+        canvas.style.cursor = "default";
+      }
     });
 
     canvas.addEventListener("mouseleave", () => {
+      if (draggedBubble) {
+        draggedBubble.vx = dragVx;
+        draggedBubble.vy = dragVy;
+        draggedBubble = null;
+      }
       isHoveringLogo = false;
       canvas.style.cursor = "default";
     });
@@ -280,13 +355,16 @@
 
 
       for (const bubble of bubbles) {
-        bubble.update(bubbles);
+        if (bubble !== draggedBubble) bubble.update(bubbles);
         bubble.draw(ctx);
       }
 
 
       // Hover glow effect
-      if (isHoveringLogo) {
+      const targetOpacity = isHoveringLogo ? 1 : 0;
+      hoverOpacity += (targetOpacity - hoverOpacity) * 0.06;
+
+      if (hoverOpacity > 0.01) {
         hoverPulse += 0.05;
         const pulse = Math.sin(hoverPulse) * 0.5 + 0.5; // 0..1 oscillation
 
@@ -294,7 +372,7 @@
         for (let r = 0; r < 3; r++) {
           const ringPhase = (hoverPulse * 0.8 + r * (Math.PI * 2 / 3)) % (Math.PI * 2);
           const ringRadius = 78 + ((ringPhase / (Math.PI * 2)) % 1) * 60;
-          const ringAlpha = 1 - (ringRadius - 78) / 60;
+          const ringAlpha = (1 - (ringRadius - 78) / 60) * hoverOpacity;
           ctx.beginPath();
           ctx.arc(canvas.width / 2, canvas.height / 2, ringRadius, 0, Math.PI * 2);
           ctx.strokeStyle = `rgba(0, 0, 0, ${ringAlpha * 0.5})`;
@@ -307,7 +385,7 @@
           canvas.width / 2, canvas.height / 2, 40,
           canvas.width / 2, canvas.height / 2, 110
         );
-        glow.addColorStop(0, `rgba(80, 80, 80, ${0.18 + pulse * 0.12})`);
+        glow.addColorStop(0, `rgba(80, 80, 80, ${(0.18 + pulse * 0.12) * hoverOpacity})`);
         glow.addColorStop(1, "rgba(0, 0, 0, 0)");
         ctx.beginPath();
         ctx.arc(canvas.width / 2, canvas.height / 2, 110, 0, Math.PI * 2);

@@ -111,7 +111,7 @@
         const dx = ((window.innerWidth / 2)) - this.x;
         const dy = ((window.innerHeight / 2)) - this.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        if (distance < this.radius + 75) { // 75 is half the logo size
+        if (distance < this.radius + 75 * getScale()) { // 75 is half the logo size
           // Simple collision response: bounce off the logo
           const angle = Math.atan2(dy, dx);
           const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
@@ -129,9 +129,9 @@
         ctx.fill();
         ctx.stroke();
 
-        if (this.radius > 25) {
+        if (this.radius > 25 * getScale()) {
           ctx.beginPath();
-          ctx.arc(this.x, this.y, this.radius - 20, 0, Math.PI * 2);
+          ctx.arc(this.x, this.y, this.radius - 20 * getScale(), 0, Math.PI * 2);
           ctx.fillStyle = "black";
           ctx.strokeStyle = STROKE_COLOR;
           ctx.lineWidth = 5;
@@ -149,7 +149,7 @@
         for (let j = 0; j < 4; j++) {
           const x = i * ((window.innerWidth - 100) / 4) + 50; // Distribute bubbles evenly across the width
           const y = j * ((window.innerHeight - 100) / 3) + 50; // Distribute bubbles evenly across the height
-          const radius = Math.random() * 30 + 20; // Random radius between 10 and 30
+          const radius = (Math.random() * 30 + 20) * getScale();
           const bubble = new Bubble(x, y, radius);
           bubbles.push(bubble);
         }
@@ -158,6 +158,11 @@
     }
 
 
+
+    // Scale factor: 1 on desktop, shrinks down to 0.5 on narrow screens
+    function getScale() {
+      return Math.max(0.5, Math.min(1, window.innerWidth / 768));
+    }
 
     // Resize canvas
     function resize() {
@@ -181,12 +186,26 @@
     let prevDragX = 0, prevDragY = 0;
     let dragVx = 0, dragVy = 0;
 
+    function releaseDrag(vx, vy) {
+      if (!draggedBubble) return;
+      const maxSpeed = 12;
+      const speed = Math.sqrt(vx * vx + vy * vy);
+      if (speed > maxSpeed) {
+        draggedBubble.vx = (vx / speed) * maxSpeed;
+        draggedBubble.vy = (vy / speed) * maxSpeed;
+      } else {
+        draggedBubble.vx = vx;
+        draggedBubble.vy = vy;
+      }
+      draggedBubble = null;
+    }
+
     function isOverLogo(x, y) {
       const cx = canvas.width / 2;
       const cy = canvas.height / 2;
       const dx = x - cx;
       const dy = y - cy;
-      return Math.sqrt(dx * dx + dy * dy) < 75;
+      return Math.sqrt(dx * dx + dy * dy) < 75 * getScale();
     }
 
     function bubbleAt(x, y) {
@@ -236,28 +255,16 @@
       canvas.style.cursor = over ? "pointer" : overBubble ? "grab" : "default";
     });
 
-    canvas.addEventListener("mouseup", (e) => {
+    canvas.addEventListener("mouseup", () => {
       if (draggedBubble) {
-        // Release with the velocity from the last drag movement, clamped to a max speed
-        const maxSpeed = 12;
-        const speed = Math.sqrt(dragVx * dragVx + dragVy * dragVy);
-        if (speed > maxSpeed) {
-          draggedBubble.vx = (dragVx / speed) * maxSpeed;
-          draggedBubble.vy = (dragVy / speed) * maxSpeed;
-        } else {
-          draggedBubble.vx = dragVx;
-          draggedBubble.vy = dragVy;
-        }
-        draggedBubble = null;
+        releaseDrag(dragVx, dragVy);
         canvas.style.cursor = "default";
       }
     });
 
     canvas.addEventListener("mouseleave", () => {
       if (draggedBubble) {
-        draggedBubble.vx = dragVx;
-        draggedBubble.vy = dragVy;
-        draggedBubble = null;
+        releaseDrag(dragVx, dragVy);
       }
       isHoveringLogo = false;
       canvas.style.cursor = "default";
@@ -268,6 +275,54 @@
         window.open("https://join.compas.dev/dd26", "_blank");
       }
     });
+
+    // ── Touch support ────────────────────────────────────────────────────────
+    let touchStartX = 0, touchStartY = 0;
+
+    canvas.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      const t = e.changedTouches[0];
+      touchStartX = t.clientX;
+      touchStartY = t.clientY;
+      if (isOverLogo(t.clientX, t.clientY)) return;
+      const b = bubbleAt(t.clientX, t.clientY);
+      if (b) {
+        draggedBubble = b;
+        prevDragX = t.clientX;
+        prevDragY = t.clientY;
+        dragVx = 0;
+        dragVy = 0;
+        b.vx = 0;
+        b.vy = 0;
+      }
+    }, { passive: false });
+
+    canvas.addEventListener("touchmove", (e) => {
+      e.preventDefault();
+      if (!draggedBubble) return;
+      const t = e.changedTouches[0];
+      dragVx = t.clientX - prevDragX;
+      dragVy = t.clientY - prevDragY;
+      draggedBubble.x = t.clientX;
+      draggedBubble.y = t.clientY;
+      prevDragX = t.clientX;
+      prevDragY = t.clientY;
+    }, { passive: false });
+
+    canvas.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      const t = e.changedTouches[0];
+      if (draggedBubble) {
+        releaseDrag(dragVx, dragVy);
+      } else {
+        // Tap on logo (no bubble was grabbed and touch didn't move much)
+        const dx = t.clientX - touchStartX;
+        const dy = t.clientY - touchStartY;
+        if (Math.sqrt(dx * dx + dy * dy) < 10 && isOverLogo(t.clientX, t.clientY)) {
+          window.open("https://join.compas.dev/dd26", "_blank");
+        }
+      }
+    }, { passive: false });
 
     compas_icon = new Image();
     compas_icon.src = "compas_icon.png";
@@ -369,10 +424,11 @@
         const pulse = Math.sin(hoverPulse) * 0.5 + 0.5; // 0..1 oscillation
 
         // Expanding ripple rings
+        const s = getScale();
         for (let r = 0; r < 3; r++) {
           const ringPhase = (hoverPulse * 0.8 + r * (Math.PI * 2 / 3)) % (Math.PI * 2);
-          const ringRadius = 78 + ((ringPhase / (Math.PI * 2)) % 1) * 60;
-          const ringAlpha = (1 - (ringRadius - 78) / 60) * hoverOpacity;
+          const ringRadius = 78 * s + ((ringPhase / (Math.PI * 2)) % 1) * 60 * s;
+          const ringAlpha = (1 - (ringRadius - 78 * s) / (60 * s)) * hoverOpacity;
           ctx.beginPath();
           ctx.arc(canvas.width / 2, canvas.height / 2, ringRadius, 0, Math.PI * 2);
           ctx.strokeStyle = `rgba(0, 0, 0, ${ringAlpha * 0.5})`;
@@ -382,22 +438,23 @@
 
         // Glow behind icon
         const glow = ctx.createRadialGradient(
-          canvas.width / 2, canvas.height / 2, 40,
-          canvas.width / 2, canvas.height / 2, 110
+          canvas.width / 2, canvas.height / 2, 40 * s,
+          canvas.width / 2, canvas.height / 2, 110 * s
         );
         glow.addColorStop(0, `rgba(80, 80, 80, ${(0.18 + pulse * 0.12) * hoverOpacity})`);
         glow.addColorStop(1, "rgba(0, 0, 0, 0)");
         ctx.beginPath();
-        ctx.arc(canvas.width / 2, canvas.height / 2, 110, 0, Math.PI * 2);
+        ctx.arc(canvas.width / 2, canvas.height / 2, 110 * s, 0, Math.PI * 2);
         ctx.fillStyle = glow;
         ctx.fill();
       } else {
         hoverPulse = 0;
       }
 
-      ctx.drawImage(compas_icon, canvas.width / 2 - 75, canvas.height / 2 - 75, 150, 150);
+      const logoSize = 150 * getScale();
+      ctx.drawImage(compas_icon, canvas.width / 2 - logoSize / 2, canvas.height / 2 - logoSize / 2, logoSize, logoSize);
       ctx.beginPath();
-      ctx.arc(canvas.width / 2, canvas.height / 2, 72, 0, Math.PI * 2);
+      ctx.arc(canvas.width / 2, canvas.height / 2, 72 * getScale(), 0, Math.PI * 2);
       ctx.strokeStyle = "black";
       ctx.lineWidth = 2;
       ctx.stroke();

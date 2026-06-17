@@ -1,0 +1,10 @@
+<script>
+  function transformUrl(input) {
+    const url = new URL(input);
+    const beam = url.searchParams.get("beam");
+    const base = "https://gramaziokohler.github.io/coding_architecture_fs26_focus_work/";
+    const target = `https://github.com/gramaziokohler/coding_architecture_fs26_focus_work/blob/main/web_data/beams/${beam}`;
+    return `${base}?beam=${target}`;
+  }
+  window.location = transformUrl(window.location.toString());
+</script>
